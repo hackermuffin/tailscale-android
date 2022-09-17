@@ -59,6 +59,8 @@ const (
 	logPrefKey               = "privatelogid"
 	loginMethodPrefKey       = "loginmethod"
 	customLoginServerPrefKey = "customloginserver"
+	enableCloudflareTunnelKey = "cloudflaretunnelenable"
+	cloudflareTunnelPortKey	 = "cloudflaretunnelport"
 )
 
 const (

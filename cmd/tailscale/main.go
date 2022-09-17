@@ -141,6 +141,7 @@ type Peer struct {
 
 type BackendState struct {
 	Prefs        *ipn.Prefs
+	TunnelPrefs	 TunnelPrefs
 	State        ipn.State
 	NetworkMap   *netmap.NetworkMap
 	LostInternet bool
@@ -150,6 +151,12 @@ type BackendState struct {
 	ExitStatus ExitStatus
 	// Exit is our current exit node, if any.
 	Exit Peer
+}
+
+type TunnelPrefs struct {
+	Enabled      bool
+	URL          string
+	Port         string
 }
 
 // UIEvent is an event flowing from the UI to the backend.
@@ -183,6 +190,8 @@ type FileSendEvent struct {
 
 type SetLoginServerEvent struct {
 	URL string
+	EnableTunnel bool
+	TunnelPort string
 }
 
 // UIEvent types.
@@ -331,6 +340,23 @@ func (a *App) runBackend() error {
 			waitingFilesDone <- struct{}{}
 		}()
 	}
+	savedTunnelEnable, _ := a.store.ReadBool(enableCloudflareTunnelKey, false)
+	fmt.Printf("Websocket: %t\n", savedTunnelEnable)
+	fmt.Printf("Websocket - Enabled: %t, URL: %s, Port: %s", savedTunnelEnable, state.TunnelPrefs.URL, state.TunnelPrefs.Port)
+	if (savedTunnelEnable) {
+		savedLoginServer, _ := a.store.ReadString(customLoginServerPrefKey, "")
+		savedTunnelPort, _ := a.store.ReadString(cloudflareTunnelPortKey, "")
+		args := []string{
+			"./cloudflared",
+			"access",
+			"tcp",
+			"--hostname", savedLoginServer,
+			"--url", "127.0.0.1:" + savedTunnelPort,
+		}
+		fmt.Printf("Websocket Starting tunnel with %s", args)
+		go RunTunnel(SetupApp(), args)
+	}
+
 	for {
 		select {
 		case err := <-startErr:
@@ -439,7 +465,15 @@ func (a *App) runBackend() error {
 					signingIn = true
 				}
 			case SetLoginServerEvent:
-				state.Prefs.ControlURL = e.URL
+				if (e.EnableTunnel) {
+					state.Prefs.ControlURL = "http://127.0.0.1:" + e.TunnelPort
+					state.TunnelPrefs.Enabled = true
+					state.TunnelPrefs.URL = e.URL
+					state.TunnelPrefs.Port = e.TunnelPort
+				} else {
+					state.Prefs.ControlURL = e.URL
+					state.TunnelPrefs.Enabled = false
+				}
 				b.backend.SetPrefs(state.Prefs)
 				// A hack to get around ipnlocal's inability to update
 				// ControlURL after Start()... Can we re-init instead?
@@ -1120,6 +1154,8 @@ func (a *App) processUIEvents(w *app.Window, events []UIEvent, act jni.Object, s
 			requestBackend(e)
 		case SetLoginServerEvent:
 			a.store.WriteString(customLoginServerPrefKey, e.URL)
+			a.store.WriteBool(enableCloudflareTunnelKey, e.EnableTunnel)
+			a.store.WriteString(cloudflareTunnelPortKey, e.TunnelPort)
 			requestBackend(e)
 		case LogoutEvent:
 			a.signOut()

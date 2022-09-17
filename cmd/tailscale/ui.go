@@ -68,6 +68,9 @@ type UI struct {
 	loginServerSave   widget.Clickable
 	loginServerCancel widget.Clickable
 
+	enableTunnel      widget.Bool
+	tunnelPort        widget.Editor
+
 	self  widget.Clickable
 	peers []widget.Clickable
 
@@ -396,8 +399,14 @@ func (ui *UI) layout(gtx layout.Context, sysIns system.Insets, state *clientStat
 
 	if ui.loginServerSave.Clicked() {
 		text := ui.loginServer.Text()
+		enableTunnel := ui.enableTunnel.Value
+		tunnelPort := ui.tunnelPort.Text()
 		ui.showMessage(gtx, "Login server saved, relaunch the app")
-		events = append(events, SetLoginServerEvent{URL: text})
+		events = append(events, SetLoginServerEvent{
+			URL: text,
+			EnableTunnel: enableTunnel,
+			TunnelPort: tunnelPort,
+		})
 	}
 	if ui.loginServerCancel.Clicked() {
 		ui.setLoginServer = false
@@ -407,6 +416,11 @@ func (ui *UI) layout(gtx layout.Context, sysIns system.Insets, state *clientStat
 		ui.setLoginServer = true
 		savedLoginServer, _ := ui.store.ReadString(customLoginServerPrefKey, "")
 		ui.loginServer.SetText(savedLoginServer)
+		savedTunnelEnable, _ := ui.store.ReadBool(enableCloudflareTunnelKey, false)
+		ui.enableTunnel.Value = savedTunnelEnable
+		savedTunnelPort, _ := ui.store.ReadString(cloudflareTunnelPortKey, "")
+		ui.tunnelPort.SetText(savedTunnelPort)
+
 	}
 
 	if ui.menuClicked(&ui.menu.copy) && localAddr != "" {
@@ -716,6 +730,34 @@ func (ui *UI) layoutSignIn(gtx layout.Context, state *BackendState) layout.Dimen
 								return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 									layout.Flexed(1,
 										material.Editor(ui.theme, &ui.loginServer, "https://controlplane.tailscale.com").Layout,
+									),
+								)
+							})
+						})
+					})
+				}),
+				layout.Rigid(func(gtx C) D {
+					return layout.Inset{Bottom: unit.Dp(16)}.Layout(gtx, func(gtx C) D {
+						return border.Layout(gtx, func(gtx C) D {
+							return material.Subtitle1(ui.theme, "Cloudflare Tunnel Settings").Layout(gtx)
+						})
+					})
+				}),
+				layout.Rigid(func(gtx C) D {
+					return layout.Inset{Bottom: unit.Dp(16)}.Layout(gtx, func(gtx C) D {
+						return border.Layout(gtx, func(gtx C) D {
+							swtch := material.Switch(ui.theme, &ui.enableTunnel, "Enable Cloudflare Tunnel")
+							return swtch.Layout(gtx)
+						})
+					})
+				}),
+				layout.Rigid(func(gtx C) D {
+					return layout.Inset{Bottom: unit.Dp(16)}.Layout(gtx, func(gtx C) D {
+						return Background{Color: rgb(0xe3e2ea), CornerRadius: unit.Dp(8)}.Layout(gtx, func(gtx C) D {
+							return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx C) D {
+								return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+									layout.Flexed(1,
+										material.Editor(ui.theme, &ui.tunnelPort, "Local Tunnel Bind Port").Layout,
 									),
 								)
 							})

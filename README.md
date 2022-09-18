@@ -17,6 +17,19 @@ This repository contains the open source Tailscale Android client.
      alt="Get it on Google Play"
      height="80">](https://play.google.com/store/apps/details?id=com.tailscale.ipn)
 
+
+### Cloudflare Tunnels
+
+Now with support for connecting to a control server behind a Cloudflare TCP tunnel.
+
+The server side URL should be set to `http://127.0.0.1:<port>`, with the cloudflare
+tunnel routing a public hostname like `headscale.example.com` to `tcp://<server-ip>`.
+
+In the app, set the custom server url to `http://headscale.example.com`, turn on the
+switch, and put `<port>` from above in the port number.
+
+Restart the app and the `Sign in` button should redirect to your server correctly.
+
 ## Building
 
 [Go](https://golang.org), the [Android
